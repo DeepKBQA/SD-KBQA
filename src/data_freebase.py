@@ -22,6 +22,9 @@ def create_intermediate(dataframe, datatype='train'):
 	intermediate['second_entity_ids'] = dataframe['entity'].apply(lambda string:'').apply(addspecialtokens).apply(wordstoberttokens).apply(berttokenstoids)
 	intermediate['entity'] = dataframe['entity']
 	intermediate['tokenized_question'] = dataframe.entity.apply(addspecialtokens).apply(wordstoberttokens)
+	# adding actual entity MIDs
+	intermediate['answer_mid'] = dataframe['answer_mid']
+	# saving everything
 	intermediate.to_excel(f"../data/freebase/{datatype}_intermediate.xlsx")
 
 QUESTION_WORDS = ['what', 'which', 'where', 'when', 'why', 'who', 'how', 'whom']
@@ -113,7 +116,7 @@ def read_data(input_pkl_dir=r'../bertified/freebase/', datatype='train'):
 
 
 if __name__=='__main__':
-	columns = ['identifier', 'entity_mid', 'entity', 'relation_type', 'answer_mid', 'question', 'entity_label']
+	columns = ['identifier', 'answer_mid', 'entity', 'relation_type', 'idk_mid', 'question', 'entity_label']
 	train_df = pd.read_csv(
 	    '../data/freebase/questions/train.txt',
 	    sep='\t',
