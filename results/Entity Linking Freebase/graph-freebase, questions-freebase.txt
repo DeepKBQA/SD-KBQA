@@ -1,0 +1,7 @@
+Top1 Entity Linking Accuracy: 0.6191642847420716
+Top3 Entity Linking Accuracy: 0.7326346354521119
+Top5 Entity Linking Accuracy: 0.7678417494669026
+Top10 Entity Linking Accuracy: 0.8009164738441994
+Top20 Entity Linking Accuracy: 0.8273218093552924
+Top50 Entity Linking Accuracy: 0.8566308243727598
+Top100 Entity Linking Accuracy: 0.8746880813030262

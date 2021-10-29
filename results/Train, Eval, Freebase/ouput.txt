@@ -1,0 +1,40 @@
+Train Epoch Number 1: 100% 379/379 [09:15<00:00,  1.47s/it]
+INFO:root:Epoch number: 1 Train Loss is equal: 160.81332397460938
+Eval Epoch Number 1: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 1 Eval Loss is equal: 49.62126922607422
+Train Epoch Number 2: 100% 379/379 [09:13<00:00,  1.46s/it]
+INFO:root:Epoch number: 2 Train Loss is equal: 45.63182830810547
+Eval Epoch Number 2: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 2 Eval Loss is equal: 47.915584564208984
+Train Epoch Number 3: 100% 379/379 [09:11<00:00,  1.45s/it]
+INFO:root:Epoch number: 3 Train Loss is equal: 36.16160583496094
+Eval Epoch Number 3: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 3 Eval Loss is equal: 46.21761703491211
+Train Epoch Number 4: 100% 379/379 [09:12<00:00,  1.46s/it]
+INFO:root:Epoch number: 4 Train Loss is equal: 31.717660903930664
+Eval Epoch Number 4: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 4 Eval Loss is equal: 43.64381790161133
+Train Epoch Number 5: 100% 379/379 [09:15<00:00,  1.47s/it]
+INFO:root:Epoch number: 5 Train Loss is equal: 27.552978515625
+Eval Epoch Number 5: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 5 Eval Loss is equal: 44.59246063232422
+Train Epoch Number 6: 100% 379/379 [09:13<00:00,  1.46s/it]
+INFO:root:Epoch number: 6 Train Loss is equal: 27.0644588470459
+Eval Epoch Number 6: 100% 55/55 [00:29<00:00,  1.87it/s]
+INFO:root:Epoch number: 6 Eval Loss is equal: 46.92041778564453
+Predicting ...: 100% 217/217 [00:57<00:00,  3.79it/s]
+INFO:root:Dataset-wide F1, precision and recall:
+INFO:root:0.9721621056747773, 0.9722604309949564, 0.9720638002399925
+INFO:root:Averaged F1, precision and recall:
+INFO:root:nan, nan, 0.9602339420913362
+INFO:root:Span accuracy
+INFO:root:0.9500439428280679
+INFO:root:Dataset-wide F1, precision and recall:
+INFO:root:0.9864830448521437, 0.9867343472845983, 0.9862318703909772
+INFO:root:Averaged F1, precision and recall:
+INFO:root:0.9897860134295995, 0.989427927352778, 0.9901443587917272
+INFO:root:Span accuracy
+INFO:root:0.0
+Question                    Node               Edge
+--------------------------  -----------------  --------------------
+Where was Bill Gates Born?  ['bill', 'gates']  ['was', 'born', '?']
