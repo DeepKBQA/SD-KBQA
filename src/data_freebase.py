@@ -20,6 +20,7 @@ def create_intermediate(dataframe, datatype='train'):
 	intermediate['Answer'] = dataframe.answer_mid
 	intermediate['first_entity_ids'] = dataframe['entity'].apply(addspecialtokens).apply(wordstoberttokens).apply(berttokenstoids)
 	intermediate['second_entity_ids'] = dataframe['entity'].apply(lambda string:'').apply(addspecialtokens).apply(wordstoberttokens).apply(berttokenstoids)
+	intermediate['relation_type'] = dataframe['relation_type']	
 	intermediate['entity'] = dataframe['entity']
 	intermediate['tokenized_question'] = dataframe.entity.apply(addspecialtokens).apply(wordstoberttokens)
 	# adding actual entity MIDs
