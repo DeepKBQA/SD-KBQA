@@ -1,149 +1,90 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# <a href="https://colab.research.google.com/github/meti-94/OpenQA/blob/main/EntityLinking.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
-# In[1]:
-
-
-get_ipython().system('pip install transformers -q')
-get_ipython().system('pip install fuzzywuzzy -q')
-get_ipython().system('pip install python-Levenshtein -q')
-
-
-# In[ ]:
-
-
-get_ipython().system('pip install fuzzywuzzy -q')
-get_ipython().system('git clone https://github.com/castorini/BuboQA.git')
-get_ipython().run_line_magic('cd', '/content/BuboQA')
-get_ipython().system('bash setup.sh ')
-
-
-# In[ ]:
-
-
-cp -r /content/BuboQA/indexes /content/drive/MyDrive
-
-
-# In[ ]:
-
-
-cp -r /content/BuboQA/data/processed_simplequestions_dataset /content/drive/MyDrive
-
-
-# In[2]:
-
-
+# importing necessary libraries
 import pandas as pd
 import pickle
 from tqdm import tqdm
 from fuzzywuzzy import fuzz
+import os
+from collections import defaultdict
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+import sys
 
-
-# In[18]:
-
-
-# mapping between MIDs and names in the form of dict['MID']=['str1', 'str2', ...,  'strN']
-with open('/content/drive/MyDrive/indexes/names_2M.pkl', 'rb') as f:
+# reading indices
+def read_indices(base_path='/content/drive/MyDrive/indexes/'):
+  # mapping between MIDs and names in the form of dict['MID']=['str1', 'str2', ...,  'strN']
+  with open(os.path.join(base_path, 'names_2M.pkl'), 'rb') as f:
     mid2name = pickle.load(f)
-
-
-# In[19]:
-
-
-# In/Out degree for each MID in the form of dict['MID']=[In degree, Out degree]
-with open('/content/drive/MyDrive/indexes/degrees_2M.pkl', 'rb') as f:
-    degrees_2M = pickle.load(f)
-
-
-# In[20]:
-
-
-# reverse mapping between string and MID in the form of dict['string']=[('MID', 'actual string', 'freebase type') ...] 
-with open('/content/drive/MyDrive/indexes/entity_2M.pkl', 'rb') as f:
+  # reverse mapping between string and MID in the form of dict['string']=[('MID', 'actual string', 'freebase type') ...] 
+  with open(os.path.join(base_path, 'entity_2M.pkl'), 'rb') as f:
     entity_2M = pickle.load(f)
-
-
-# In[21]:
-
-
-# mapping between MIDs and Relations in the form of dict['MID']=[{'fb:common.topic.notable_types', 'fb:people.person.gender', 'fb:people.person.profession'}]
-with open('/content/drive/MyDrive/indexes/reachability_2M.pkl', 'rb') as f:
+  # In/Out degree for each MID in the form of dict['MID']=[In degree, Out degree]
+  with open(os.path.join(base_path, 'degrees_2M.pkl'), 'rb') as f:
+    degrees_2M = pickle.load(f)
+  # mapping between MIDs and Relations in the form of dict['MID']=[{'fb:common.topic.notable_types', 'fb:people.person.gender', 'fb:people.person.profession'}]
+  with open(os.path.join(base_path, 'reachability_2M.pkl'), 'rb') as f:
     reachability_2M = pickle.load(f)
+  return mid2name, entity_2M, degrees_2M, reachability_2M
 
 
-# In[22]:
+# reading reverb freebase combination file
+def read_reverb2freebase(path='/content/drive/MyDrive/data_freebase/reverb_linked.csv'):
+  reverb2freebace = pd.read_csv(path)
+  reverb2freebace['freebase_ID_argument1'] = reverb2freebace['freebase_ID_argument1'].apply(lambda string:'fb:m.'+str(string))
+  reverb2freebace['conf'] = reverb2freebace['conf'].astype(float)
+  return reverb2freebace
+
+# adding new nodes to KB
+def combine(mid2name, entity_2M, degrees_2M, reachability_2M, reverb2freebace):
+  matched_mids, unmatched_mids, added_entity_strings = 0, 0, 0
+  string_count = sum([len(name) for name in entity_2M.values()])
 
 
-reverb2freebace = pd.read_csv('/content/drive/MyDrive/reverb2freebase.csv')
-reverb2freebace['freebase_ID_argument1'] = reverb2freebace['freebase_ID_argument1'].apply(lambda string:'fb:m.'+string)
-reverb2freebace['conf'] = reverb2freebace['conf'].astype(float)
-
-
-# In[23]:
-
-
-mid_count = len(mid2name)
-string_count = sum([len(name) for name in mid2name.values()])
-original_relations = sum([len(relation) for relation in reachability_2M.values()])
-
-matched_mids = 0
-new_entity_strings = 0
-new_relations = 0
-
-for index, row in tqdm(reverb2freebace.iterrows(), total=reverb2freebace.shape[0]):
-  mid = row['freebase_ID_argument1']
-  reverb_string = row['arg1']
-  relation = row['rel']
-  conf = str(row['conf'])
-  try:
-    temp = mid2name[mid]
-    matched_mids+=1
-  except:
-    continue
-  if reverb_string not in temp:
-    temp.append((reverb_string, conf))
-    new_entity_strings+=1
-  temp = reachability_2M[mid]
-  if relation not in temp:
-    temp.add((relation, conf))
-    new_relations+=1
-  try:
-    temp = entity_2M[reverb_string]
-    temp.add((mid, reverb_string, conf))
-  except:
-    entity_2M[reverb_string] = set([(mid, reverb_string, conf)])
+  for index, row in tqdm(reverb2freebace.iterrows(), total=reverb2freebace.shape[0]):
+    if row['freebase_ID_argument1'] in mid2name:
+      mid1 = mid = row['freebase_ID_argument1'] 
+      matched_mids+=1
+    else:
+      mid1 = mid = row['argument1_uuid']
+      unmatched_mids+=1
+    mid2 = mid = row['argument2_uuid']
+    unmatched_mids+=1
+    reverb_string1 = str(row['arg1']).lower()
+    reverb_string2 = str(row['arg2']).lower()
+    relation = row['rel']
+    conf = str(row['conf'])
+    linking = str(row['link_score'])
+    try:
+      temp = entity_2M[reverb_string1]
+    except:
+      entity_2M[reverb_string1] = set()
+      temp = entity_2M[reverb_string1]
+      added_entity_strings+=1
+    temp.add((mid1, reverb_string1, conf))
+    try:
+      temp = entity_2M[reverb_string2]
+    except:
+      entity_2M[reverb_string2] = set()
+      temp = entity_2M[reverb_string2]
+      added_entity_strings+=1
+    temp.add((mid2, reverb_string2, conf))
   
-  degrees_2M[mid][1]+=1
+  print(f'\nTotal MIDs before augmentation: {len(mid2name)}\tUnmatched (Added) MIDs: {unmatched_mids}\t Matched MIDs: {matched_mids}')
+  print(f'Total Entity Strings before augmentation: {string_count}\tAdded Entity Strings: {added_entity_strings}') 
+  return mid2name, entity_2M, degrees_2M, reachability_2M
 
-
-print(f'\nOriginal MIDs: {mid_count}\tMatched MIDs: {matched_mids}')
-print(f'Original Entity Strings: {string_count}\tAdded Entity Strings: {new_entity_strings}') 
-print(f'Original Relations Count: {original_relations}\tAdded Relations Count: {new_relations}') 
-
-
-# In[24]:
-
-
+# creating N-grams from input text
 def get_ngram(text):
-    #ngram = set()
     ngram = []
     tokens = str(text).split()
     for i in range(len(tokens)+1):
         for j in range(i):
             if i-j <= 3:
-                #ngram.add(" ".join(tokens[j:i]))
                 temp = " ".join(tokens[j:i])
                 if temp not in ngram:
                     ngram.append(temp)
-    #ngram = list(ngram)
     ngram = sorted(ngram, key=lambda x: len(x.split()), reverse=True)
     return ngram
-
-
-# In[25]:
-
 
 def get_stat_inverted_index(reverse_index):
     """
@@ -162,70 +103,27 @@ def get_stat_inverted_index(reverse_index):
             _entry = entry
     print("Max Length of entry is {}, text is {}".format(max_len, _entry))
 
+# creating invese index
+def reverse_index(entity_2M):
+  inverted_index = defaultdict(str, entity_2M)
+  print("Total type of text: {}".format(len(inverted_index)))
+  max_len = 0
+  _entry = ""
+  for entry, value in inverted_index.items():
+    if len(value) > max_len:
+      max_len = len(value)
+      _entry = list(value)
+  print("Max Length of entry is {}, text is {}".format(max_len, _entry[:100]))
+  return inverted_index
 
-# In[26]:
+def saving_memory(mid2name, entity_2M, degrees_2M, reachability_2M):
+  del entity_2M
+  del degrees_2M
+  del reachability_2M
+  del mid2name
 
-
-from collections import defaultdict
-inverted_index = defaultdict(str, entity_2M)
-print("Total type of text: {}".format(len(inverted_index)))
-max_len = 0
-_entry = ""
-for entry, value in inverted_index.items():
-  if len(value) > max_len:
-    max_len = len(value)
-    _entry = list(value)
-print("Max Length of entry is {}, text is {}".format(max_len, _entry[:100]))
-
-
-# In[27]:
-
-
-del entity_2M
-del degrees_2M
-del reachability_2M
-del mid2name
-
-
-# In[37]:
-
-
-reverb2freebace.head()
-
-
-# In[36]:
-
-
-reverb2freebace.iloc[168]
-
-
-# In[31]:
-
-
-pred_df_freebase = pd.read_excel('/content/freebase_answers.xlsx')
-pred_df_reverb = pd.read_excel('/content/reverb_answers.xlsx')
-print(len(pred_df_freebase), len(pred_df_reverb))
-pred_df = pd.concat([pred_df_freebase, pred_df_reverb])
-print(len(pred_df))
-# pred_df['Question'] = pred_df['questions'].apply(lambda item:' '.join(eval(item)).replace(' #', ''))
-# gold_df_freebase = pd.read_excel('/content/drive/MyDrive/data_freebase/test_useful_records.xlsx')
-# gold_df_
-# print(len(pred_df), len(gold_df))
-# df = pred_df.merge(gold_df, on='Question', how ='inner')
-# print(len(df))
-
-# predicteds = df['node'].astype(str).to_list()
-# golds = df['Answer'].to_list()
-
-
-# In[29]:
-
-
-import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
-import sys
-def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output):
+# Entity linking and evaluation 
+def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output, inverted_index):
     stopword = set(stopwords.words('english'))
     fout = open(output, 'w')
     total = 0
@@ -236,27 +134,35 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output):
     top20 = 0
     top50 = 0
     top100 = 0
-
+    hits = []
+    candidates = []
     for idx, (predicted, gold_id) in tqdm(enumerate(zip(predicteds, golds))):
+        bflag = True
         total += 1
         C = []
         C_scored = []
         tokens = get_ngram(predicted)
-
+        # print(tokens)
         if len(tokens) > 0:
             maxlen = len(tokens[0].split())
+            # print(maxlen)
         for item in tokens:
             if len(item.split()) < maxlen and len(C) == 0:
                 maxlen = len(item.split())
             if len(item.split()) < maxlen and len(C) > 0:
                 break
             if item in stopword:
+                # print('his is stopword', item)
                 continue
             C.extend(inverted_index[item])
+            # print(inverted_index[item])
         for mid_text_type in set(C):
             score = fuzz.ratio(mid_text_type[1], predicted.strip()) / 100.0
             C_scored.append((mid_text_type, score))
         C_scored.sort(key=lambda t: t[1], reverse=True)
+        # print(C_scored[:100])
+        # sys.exit()
+        candidates.append(C_scored[:100])
         cand_mids = C_scored[:HITS_TOP_ENTITIES]
         for mid_text_type, score in cand_mids:
             fout.write(" %%%% {}\t{}\t{}\t{}".format(mid_text_type[0], mid_text_type[1], mid_text_type[2], score))
@@ -265,18 +171,42 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output):
         midList = [x[0][0] for x in cand_mids]
         if gold_id in midList[:1]:
             top1 += 1
+            if bflag:
+              hits.append(1)
+              bflag=False
         if gold_id in midList[:3]:
             top3 += 1
+            if bflag:
+              hits.append(3)
+              bflag=False            
         if gold_id in midList[:5]:
             top5 += 1
+            if bflag:
+              hits.append(5)
+              bflag=False
         if gold_id in midList[:10]:
             top10 += 1
+            if bflag:
+              hits.append(10)
+              bflag=False
         if gold_id in midList[:20]:
             top20 += 1
+            if bflag:
+              hits.append(20)
+              bflag=False
         if gold_id in midList[:50]:
             top50 += 1
+            if bflag:
+              hits.append(50)
+              bflag=False
         if gold_id in midList[:100]:
             top100 += 1
+            if bflag:
+              hits.append(100)
+              bflag=False
+        if bflag:
+          hits.append(-1)
+          bflag=False
 
     print(data_type)
     print("Top1 Entity Linking Accuracy: {}".format(top1 / total))
@@ -286,16 +216,40 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output):
     print("Top20 Entity Linking Accuracy: {}".format(top20 / total))
     print("Top50 Entity Linking Accuracy: {}".format(top50 / total))
     print("Top100 Entity Linking Accuracy: {}".format(top100 / total))
+    return hits, candidates
 
 
-# In[30]:
+if __name__=='__main__':
+  # reading step-by-step output
+  test_df = pd.read_excel('/content/drive/MyDrive/data_freebase/sbs.xlsx')
+  reverb2freebace = read_reverb2freebase()
+  questions_fact = reverb2freebace.merge(test_df, how='inner', left_on='reverb_no', right_on='Reverb_no')
+  
+  # reading freebase questions 
+  freebase = pd.read_excel('/content/drive/MyDrive/data_freebase/test_useful_records.xlsx')
+  golds = []
+  for idx, row in questions_fact.iterrows():
+    if row['freebase_ID_argument1']=='fb:m.nan':
+      ans_ent = row['answer_entity']
+      golds.append(row[f'argument{ans_ent}_uuid'])
+    else:
+      golds.append(row['freebase_ID_argument1'])
+  predicteds = questions_fact.node.astype(str).to_list()
+  print(f'Reverb Questions Count: {len(golds)}\tFreebase Questions Count: {len(freebase)}')
+  golds+=freebase.Answer.to_list()
+  predicteds+=freebase.entity.to_list()
+  
+  questions =  questions_fact.Question.to_list()+freebase.Question.to_list()
 
-
-entity_linking('test', predicteds, golds, 100, "./results")
-
-
-# In[ ]:
-
-
-
-
+  mid2name, entity_2M, degrees_2M, reachability_2M = read_indices()
+  mid2name, entity_2M, degrees_2M, reachability_2M = combine(mid2name, entity_2M, degrees_2M, reachability_2M, reverb2freebace)
+  inverted_index = reverse_index(entity_2M)
+  saving_memory(mid2name, entity_2M, degrees_2M, reachability_2M)
+  hits, candidates = entity_linking('test', predicteds, golds, 100, "./results", inverted_index)
+  pd.DataFrame({
+    'Question':questions,
+    'NER':predicteds,
+    'Answer':golds,
+    'HIT@':hits,
+    'Candidates':candidates
+  }).to_excel('Linking.xlsx', index=False)
