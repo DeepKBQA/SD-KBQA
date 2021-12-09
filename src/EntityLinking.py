@@ -28,7 +28,7 @@ def read_indices(base_path='/content/drive/MyDrive/indexes/'):
 
 
 # reading reverb freebase combination file
-def read_reverb2freebase(path='/content/drive/MyDrive/data_freebase/reverb_linked.csv'):
+def read_reverb2freebase(path='/content/drive/MyDrive/reverb2freebase.csv'):
   reverb2freebace = pd.read_csv(path)
   reverb2freebace['freebase_ID_argument1'] = reverb2freebace['freebase_ID_argument1'].apply(lambda string:'fb:m.'+str(string))
   reverb2freebace['conf'] = reverb2freebace['conf'].astype(float)
