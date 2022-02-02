@@ -221,12 +221,15 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output, inve
 
 if __name__=='__main__':
   # reading step-by-step output
-  test_df = pd.read_excel('/content/drive/MyDrive/data_freebase/sbs.xlsx')
+  test_df = pd.read_excel('/content/drive/MyDrive/data_freebase/valid_sbs.xlsx')
+  # adding actual entity for reverb
+  temp_df = pd.read_excel('/content/OpenQA/data/reverb/valid.xlsx')[['Question', 'answer_entity']]
+  test_df = test_df.merge(temp_df, how='inner', left_on='Question', right_on='Question')
   reverb2freebace = read_reverb2freebase()
   questions_fact = reverb2freebace.merge(test_df, how='inner', left_on='reverb_no', right_on='Reverb_no')
   
   # reading freebase questions 
-  freebase = pd.read_excel('/content/drive/MyDrive/data_freebase/test_useful_records.xlsx')
+  freebase = pd.read_excel('/content/OpenQA/data/freebase/valid_useful_records.xlsx')
   golds = []
   for idx, row in questions_fact.iterrows():
     if row['freebase_ID_argument1']=='fb:m.nan':
