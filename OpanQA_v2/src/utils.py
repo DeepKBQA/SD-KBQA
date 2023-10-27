@@ -37,7 +37,7 @@ def nodes_get_f1(predicts, golden):
 	pred_start, pred_end = predicts[:, 0], predicts[:, 1]
 	overlap_start = np.maximum(pred_start, gold_start)
 	overlap_end = np.minimum(pred_end, gold_end)
-	overlap = (overlap_end - overlap_start).sum()
+	overlap = np.maximum((overlap_end - overlap_start).sum(), 0)
 	expected = (gold_end - gold_start).sum()
 	predicted = (pred_end - pred_start).sum()
 	recall = overlap / expected
@@ -46,17 +46,23 @@ def nodes_get_f1(predicts, golden):
 	logging.info("Dataset-wide F1, precision and recall:")
 	logging.info(', '.join([str(item) for item in [f1.item(), precision.item(), recall.item()]]))
 	overlap = (overlap_end - overlap_start)
+	overlap[overlap<0] = 0
 	recall = overlap / (gold_end - gold_start)
-	precision = overlap / (pred_end - pred_start)
+	temp = (pred_end - pred_start)
+	temp[temp<0] = 0
+	precision = overlap / temp
+	precision[np.isnan(precision)] = 0
 	f1 = np.divide(2 * recall * precision, recall + precision)
+	f1[np.isnan(f1)] = 0
 	recall = recall.mean()
 	precision = precision.mean()
-	acc = (f1 == 1).mean()
+	acc = (f1 == 1).astype(int).mean()
 	f1 = 2 * recall * precision / (recall + precision)
 	logging.info("Averaged F1, precision and recall:")
 	logging.info(', '.join([str(item) for item in [f1.item(), precision.item(), recall.item()]]))
 	logging.info("Span accuracy")
 	logging.info(acc)
+
 
 def get_PRF(actual, predicted):
 	precision, recall = 0, 0
@@ -76,7 +82,7 @@ def edges_get_f1(predicts, golden):
 	rows, columns = golden.shape
 	preds, actual, common, acc = 0, 0, 0, 0
 	for question in range(rows):
-		if np.array_equal(predicts[question], golden[question]):
+		if np.array_equal(predicts[question][:columns], golden[question][:columns]):
 			acc+=1
 		for token in range(columns):
 			if predicts[question, token]==1:
