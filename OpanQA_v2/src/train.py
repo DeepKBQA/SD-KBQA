@@ -278,8 +278,8 @@ class BertLSTMCRF(torch.nn.Module):
         self.tokenizer = tokenizer
         
         # CRF layers for entity and relation extraction
-        self.crf_entity = CRF(2, batch_first=True)
-        self.crf_relation = CRF(2, batch_first=True)
+        # self.crf_entity = CRF(2, batch_first=True)
+        # self.crf_relation = CRF(2, batch_first=True)
         
         # LSTM layer for sequence modeling
         self.lstm = torch.nn.LSTM(

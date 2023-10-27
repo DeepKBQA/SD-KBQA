@@ -149,7 +149,7 @@ def get_hit(actual, predict):
 	return hit_1, hit_3, hit_5, hit_10, hit_100
 				 
 if __name__=='__main__':
-	train, valid, test = read_data()
+	train, valid, test = reverb_read_data()
 	print(train[0].shape, train[1].shape)
 	# get_f1(valid[1][:, :2], valid[1][:, :2])
 	# print(train[0].shape)
