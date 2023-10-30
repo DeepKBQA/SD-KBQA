@@ -220,39 +220,39 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output, inve
 
 
 if __name__=='__main__':
-  datatype = str(sys.argv[1])
-  # reading step-by-step output
-  test_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/{datatype}_sbs.xlsx')
-  # adding actual entity for reverb
-  temp_df = pd.read_excel(f'/content/OpenQA/data/reverb/{datatype}.xlsx')[['Question', 'answer_entity']]
-  test_df = test_df.merge(temp_df, how='inner', left_on='Question', right_on='Question')
-  reverb2freebace = read_reverb2freebase('/content/drive/MyDrive/data_freebase/reverb_linked.csv')
-  questions_fact = reverb2freebace.merge(test_df, how='inner', left_on='reverb_no', right_on='Reverb_no')
-  golds = []
-  for idx, row in questions_fact.iterrows():
-    if row['freebase_ID_argument1']=='fb:m.nan':
-      ans_ent = row['answer_entity_y']
-      golds.append(row[f'argument{ans_ent}_uuid'])
-    else:
-      golds.append(row['freebase_ID_argument1'])
-  predicteds = questions_fact.node.astype(str).to_list()
-  # reading freebase questions 
-  freebase = pd.read_excel(f'/content/OpenQA/data/freebase/{datatype}_useful_records.xlsx')
-  print(f'Reverb Questions Count: {len(golds)}\tFreebase Questions Count: {len(freebase)}')
-  golds+=freebase.Answer.to_list()
-  predicteds+=freebase.entity.to_list()
-  
-  questions =  questions_fact.Question.to_list()+freebase.Question.to_list()
-
-  mid2name, entity_2M, degrees_2M, reachability_2M = read_indices()
-  mid2name, entity_2M, degrees_2M, reachability_2M = combine(mid2name, entity_2M, degrees_2M, reachability_2M, reverb2freebace)
-  inverted_index = reverse_index(entity_2M)
-  saving_memory(mid2name, entity_2M, degrees_2M, reachability_2M)
-  hits, candidates = entity_linking(datatype, predicteds, golds, 100, "./results", inverted_index)
-  pd.DataFrame({
+    datatype = str(sys.argv[1])
+    # reading step-by-step output
+    test_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/{datatype}_sbs.xlsx')
+    # adding actual entity for reverb
+    temp_df = pd.read_excel(f'/content/OpenQA/data/reverb/{datatype}.xlsx')[['Question', 'answer_entity']]
+    test_df = test_df.merge(temp_df, how='inner', left_on='Question', right_on='Question')
+    reverb2freebace = read_reverb2freebase('/content/drive/MyDrive/data_freebase/reverb_linked.csv')
+    questions_fact = reverb2freebace.merge(test_df, how='inner', left_on='reverb_no', right_on='Reverb_no')
+    if 'answer_entity_y' in questions_fact.columns:
+        questions_fact.rename(columns={"answer_entity_y": "answer_entity"})
+    golds = []
+    for idx, row in questions_fact.iterrows():
+        if row['freebase_ID_argument1']=='fb:m.nan':
+            ans_ent = row['answer_entity']
+            golds.append(row[f'argument{ans_ent}_uuid'])
+        else:
+            golds.append(row['freebase_ID_argument1'])
+    predicteds = questions_fact.node.astype(str).to_list()
+    # reading freebase questions 
+    freebase = pd.read_excel(f'/content/OpenQA/data/freebase/{datatype}_useful_records.xlsx')
+    print(f'Reverb Questions Count: {len(golds)}\tFreebase Questions Count: {len(freebase)}')
+    golds+=freebase.Answer.to_list()
+    predicteds+=freebase.entity.to_list()
+    questions =  questions_fact.Question.to_list()+freebase.Question.to_list()
+    mid2name, entity_2M, degrees_2M, reachability_2M = read_indices()
+    mid2name, entity_2M, degrees_2M, reachability_2M = combine(mid2name, entity_2M, degrees_2M, reachability_2M, reverb2freebace)
+    inverted_index = reverse_index(entity_2M)
+    saving_memory(mid2name, entity_2M, degrees_2M, reachability_2M)
+    hits, candidates = entity_linking(datatype, predicteds, golds, 100, "./results", inverted_index)
+    pd.DataFrame({
     'Question':questions,
     'NER':predicteds,
     'Answer':golds,
     'HIT@':hits,
     'Candidates':candidates
-  }).to_excel(f'EntityLinking_{datatype}.xlsx', index=False)
+    }).to_excel(f'EntityLinking_{datatype}.xlsx', index=False)
