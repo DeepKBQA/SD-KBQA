@@ -9,10 +9,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 from pattern.en import conjugate, lemma, lexeme,PRESENT,SG,PAST
 import sys
 import re
-import pyterrier as pt
-pt.init()
-checkpoint="http://www.dcs.gla.ac.uk/~craigm/colbert.dnn.zip"
-import pyterrier_colbert.indexing
 import logging
 logging.basicConfig(level=logging.WARNING)
 #### pattern python>=3.7 compatibility problem
