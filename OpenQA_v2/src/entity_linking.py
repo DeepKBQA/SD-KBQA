@@ -221,6 +221,7 @@ def entity_linking(data_type, predicteds, golds, HITS_TOP_ENTITIES, output, inve
 
 if __name__=='__main__':
     datatype = str(sys.argv[1])
+    dataset = eval(sys.argv[2])
     # reading step-by-step output
     test_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/{datatype}_sbs.xlsx')
     # adding actual entity for reverb
@@ -229,7 +230,7 @@ if __name__=='__main__':
     reverb2freebace = read_reverb2freebase('/content/drive/MyDrive/data_freebase/reverb_linked.csv')
     questions_fact = reverb2freebace.merge(test_df, how='inner', left_on='reverb_no', right_on='Reverb_no')
     if 'answer_entity_y' in questions_fact.columns:
-        questions_fact.rename(columns={"answer_entity_y": "answer_entity"})
+        questions_fact.rename(columns={"answer_entity_y": "answer_entity"}, inplace=True)
     golds = []
     for idx, row in questions_fact.iterrows():
         if row['freebase_ID_argument1']=='fb:m.nan':
@@ -248,6 +249,16 @@ if __name__=='__main__':
     mid2name, entity_2M, degrees_2M, reachability_2M = combine(mid2name, entity_2M, degrees_2M, reachability_2M, reverb2freebace)
     inverted_index = reverse_index(entity_2M)
     saving_memory(mid2name, entity_2M, degrees_2M, reachability_2M)
+    if dataset==0: # ReverbSimpleQuestions
+        golds = golds[:len(questions_fact)]
+        predicteds = predicteds[:len(questions_fact)]
+        questions = questions[:len(questions_fact)]
+    elif dataset==1: # SimpleQuestions
+        golds = golds[len(questions_fact):]
+        predicteds = predicteds[len(questions_fact):]
+        questions = questions[len(questions_fact):]
+    else: # Both 
+        pass  
     hits, candidates = entity_linking(datatype, predicteds, golds, 100, "./results", inverted_index)
     pd.DataFrame({
     'Question':questions,
@@ -255,4 +266,4 @@ if __name__=='__main__':
     'Answer':golds,
     'HIT@':hits,
     'Candidates':candidates
-    }).to_excel(f'EntityLinking_{datatype}.xlsx', index=False)
+    }).to_excel(f'EntityLinking_{datatype}_{dataset}.xlsx', index=False)
