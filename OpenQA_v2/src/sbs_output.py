@@ -17,7 +17,7 @@ if __name__=='__main__':
 	kw = {'lr':0.0002, 'weight_decay':0.1}
 	tl = TrainingLoop(node_edge_detector, optimizer, True, **kw)
 	loss = mse_loss
-	tl.load('/content/OpenQA/models/node_edge_bert.pt')
+	tl.load('/content/drive/MyDrive/data_freebase/node_edge_bert_v2.pt')
 
 	RKBG = ReverbKnowledgeBase('/content/drive/MyDrive/data_freebase/reverb_wikipedia_tuples-1.1.txt')
 	wordstoberttokens_array, berttokenstoids_array, input_token_ids_array, nodes_borders_array, edges_spans_array, node_array, edge_array = [], [], [], [], [], [], []
@@ -29,6 +29,7 @@ if __name__=='__main__':
       'Reverb_no': [-1 for _ in range(len(freebase_df))]+reverb_df.Reverb_no.to_list()
     })
 	# actual = test_df['Reverb_no'].to_list()
+	# test_df = test_df[:100]
 	system_results, candidates_array, actual_answer_array = [], [], []
 	for index, row in tqdm(test_df.iterrows(), total=test_df.shape[0]):
 		wordstoberttokens, berttokenstoids, input_token_ids, nodes_borders, edges_spans, node, edge = tl.readable_predict_article(
