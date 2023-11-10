@@ -2,7 +2,8 @@ import sys
 import pandas as pd
 import pickle
 from tqdm import tqdm
-# from tqdm.notebook import tqdm
+import pickle
+import numpy as np 
 tqdm.pandas()
 
 def combine(reachability_2M, reverb2freebace):
@@ -96,23 +97,7 @@ def adding_revised_answers(data):
     data['revised_answers'] = revised_answers
     return data 
 
-def evaluate(rawdata, dataset, datatype):
-    
-    if dataset==0 and datatype=='test':
-       data = rawdata[-5004:]
-    if dataset==1 and datatype=='test':
-       data = rawdata[:-5004]
-    if dataset==2 and datatype=='test':
-       data = rawdata
-    
-    if dataset==0 and datatype=='valid':
-       data = rawdata[-1752:]
-    if dataset==1 and datatype=='valid':
-       data = rawdata[:-1752]
-    if dataset==2 and datatype=='valid':
-       data = rawdata
-    
-    
+def evaluate(data, total):    
     top1 = 0
     top3 = 0
     top5 = 0
@@ -158,8 +143,6 @@ def evaluate(rawdata, dataset, datatype):
                     if idx2 in range(100):
                         top100 += 1
                         break 
-    total = len(data)
-    print(total)
     print("Top1 Answers: {}".format(top1 / total))
     print("Top3 Answers: {}".format(top3 / total))
     print("Top5 Answers: {}".format(top5 / total))
@@ -169,9 +152,36 @@ def evaluate(rawdata, dataset, datatype):
     print("Top100 Answers: {}".format(top100 / total))
 
 
+def save_features(data):
+  X, y = [], []
+  for idx1, row in data.iterrows():
+    try:
+      # temporary = eval(row['answers'])
+      for idx2, candidate in enumerate(row['answers']):
+        if len(candidate)==6: #(mid, rel, sim1, sim2, conf, relation[1])
+          if (candidate[0]==row['Answer']) and candidate[-1]==row['Reverb_no']:
+            X.append((candidate[2], candidate[3], float(candidate[4])))
+            y.append(1)
+          else:
+            X.append((candidate[2], candidate[3], float(candidate[4])))
+            y.append(0)
+        else: #(mid, rel, sim1, sim2, conf)
+          if (candidate[0]==row['Answer']) and (candidate[1]==row['Relation']):
+            X.append((candidate[2], candidate[3], float(1)))
+            y.append(1)
+          else:
+            X.append((candidate[2], candidate[3], float(1)))
+            y.append(0)
+    except:
+      continue
+  pickle.dump(np.array(X), open('/content/OpenQA/OpenQA_v2/src/X_valid.pickle', 'wb'))
+  pickle.dump(np.array(y), open('/content/OpenQA/OpenQA_v2/src/y_valid.pickle', 'wb'))
+
 if __name__=='__main__':
     datatype = str(sys.argv[1])
     dataset = eval(sys.argv[2])
+
+
 
     # reading the file which contains the Entity Linking candidates for each question
     entity_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/entitylinking_{datatype}.xlsx')
@@ -205,9 +215,29 @@ if __name__=='__main__':
         reachability_2M = pickle.load(f)
     
     reachability_2M = combine(reachability_2M, reverb2freebace)
+
+
+    if dataset==0 and datatype=='test':
+       data = data[-5004:]
+    if dataset==1 and datatype=='test':
+       data = data[:-5004]
+    if dataset==2 and datatype=='test':
+       pass
+    
+    if dataset==0 and datatype=='valid':
+       data = data[-1752:]
+    if dataset==1 and datatype=='valid':
+       data = data[:-1752]
+    if dataset==2 and datatype=='valid':
+       pass
+
+    total = len(data)
+    print(total)
+
     data['answers'] = data.progress_apply(create_candidates, axis=1)
     data = data.dropna(subset=['answers'])
-
+    
+    save_features(data)
     data = adding_revised_answers(data)
-    evaluate(data, dataset, datatype)
-
+    evaluate(data, total)
+    
