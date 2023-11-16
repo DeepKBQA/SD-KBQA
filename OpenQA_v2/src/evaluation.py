@@ -4,33 +4,51 @@ import pickle
 from tqdm import tqdm
 import pickle
 import numpy as np 
+from fuzzywuzzy import fuzz 
+from pattern.en import conjugate, lemma, lexeme,PRESENT,SG,PAST
 tqdm.pandas()
 
+
+def pattern_stopiteration_workaround():
+    try:
+        print(lexeme('gave'))
+    except:
+        pass
+  
+
+
 def combine(reachability_2M, reverb2freebace):
+  counter1, counter2 = 0, 0
   for index, row in tqdm(reverb2freebace.iterrows(), total=reverb2freebace.shape[0], desc='Combining Relations ... '):
     if row['freebase_ID_argument1'] in mid2name:
-      mid1 = mid = row['freebase_ID_argument1'] 
+      mid1 = row['freebase_ID_argument1'] 
     else:
-      mid1 = mid = row['argument1_uuid']
-    mid2 = mid = row['argument2_uuid']
+      mid1 = row['argument1_uuid']
+    mid2 = row['argument2_uuid']
     relation = row['rel']
     reverb_no = row['reverb_no']
     try:
       temp = reachability_2M[mid1]
+      counter1+=1
     except:
       reachability_2M[mid1] = set()
       temp = reachability_2M[mid1]
+      counter2+=1
     temp.add((relation, reverb_no))
     try:
       temp = reachability_2M[mid2]
+      counter1+=1
     except:
       reachability_2M[mid2] = set()
       temp = reachability_2M[mid2]
+      counter2+=1
     temp.add((relation, reverb_no))
+  print(counter1, counter2)
   return reachability_2M
 
 def create_candidates(row):
   ner = row['Candidates']
+  # print(ner)
   freebase = row['Freebase']
   reverb = row['Reverb']
   candidates = []
@@ -39,15 +57,26 @@ def create_candidates(row):
   try:
     for idx1, ((mid, string, conf), sim1) in enumerate(eval(ner)):
         relations = list(reachability_2M[mid])
-        for relation in relations:
+        # print(len(relations))
+        for relation in relations[:min(len(relations), 50)]:
           if isinstance(relation, tuple):
             for idx2, (rel, sim2) in enumerate(rels):
-              if relation[0]==rel:
-                candidates.append((mid, rel, sim1, sim2, conf, relation[1]))
+              
+              edge_list = rel.split()
+              if len(edge_list)>=2 and edge_list[0]=='did':
+                edge_list[1] = conjugate(verb=edge_list[1], tense=PAST)
+                rel = ' '.join(edge_list[1:])
+              similirity_ratio = fuzz.partial_ratio(relation[0], rel) 
+              if similirity_ratio>70:
+                # print(relation, rel, similirity_ratio)
+                candidates.append((mid, rel, sim1, similirity_ratio/100, conf, relation[1]))
           else:
             for idx2, (rel, sim2) in enumerate(rels):
+              # print(rel, relation)
               if relation==rel:
                 candidates.append((mid, rel, sim1, sim2, conf))
+    # print(sorted(candidates, key=lambda item:item[2]+item[3], reverse=True))
+    # print('*'*10)
     return sorted(candidates, key=lambda item:item[2]+item[3], reverse=True)
   except:
     return None
@@ -178,13 +207,18 @@ def save_features(data):
   pickle.dump(np.array(y), open('/content/OpenQA/OpenQA_v2/src/y_valid.pickle', 'wb'))
 
 if __name__=='__main__':
+    
+
+
+    
+    pattern_stopiteration_workaround()
     datatype = str(sys.argv[1])
     dataset = eval(sys.argv[2])
 
 
 
     # reading the file which contains the Entity Linking candidates for each question
-    entity_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/entitylinking_{datatype}.xlsx')
+    entity_df = pd.read_excel(f'/content/OpenQA/EntityLinking_test_2.xlsx')
     # reading the file which contains the relation candidates for each question
     relation_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/relationdetection_{datatype}.xlsx')
     # merging the relation and entity linking files
@@ -200,9 +234,10 @@ if __name__=='__main__':
     freebase_df = freebase_df[['Question', 'Relation', 'Reverb_no']]
     # concatenating all grand truth data into a one object which must named actual based on machine learning methodology 
     actuals = pd.concat([reverb_df, freebase_df])
-
+    
     data = pd.merge(actuals, predictions, on='Question', how='inner')
-
+    
+    # sys.exit()
     reverb2freebace = pd.read_csv('/content/drive/MyDrive/data_freebase/reverb_linked.csv')
     reverb2freebace['freebase_ID_argument1'] = reverb2freebace['freebase_ID_argument1'].apply(lambda string:'fb:m.'+str(string))
     reverb2freebace['conf'] = reverb2freebace['conf'].astype(float)
@@ -218,23 +253,25 @@ if __name__=='__main__':
 
 
     if dataset==0 and datatype=='test':
-       data = data[-5004:]
+       data = data[:5004]
     if dataset==1 and datatype=='test':
-       data = data[:-5004]
+       data = data[5004:]
     if dataset==2 and datatype=='test':
        pass
     
     if dataset==0 and datatype=='valid':
-       data = data[-1752:]
+       data = data[:1752]
     if dataset==1 and datatype=='valid':
-       data = data[:-1752]
+       data = data[1752:]
     if dataset==2 and datatype=='valid':
        pass
 
     total = len(data)
     print(total)
-
+    # data.progress_apply(create_candidates, axis=1)
+    # sys.exit()
     data['answers'] = data.progress_apply(create_candidates, axis=1)
+    data.to_excel("actual.xlsx")
     data = data.dropna(subset=['answers'])
     
     save_features(data)
