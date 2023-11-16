@@ -227,7 +227,7 @@ if __name__=='__main__':
 
 
     # reading the file which contains the Entity Linking candidates for each question
-    entity_df = pd.read_excel(f'/content/OpenQA/EntityLinking_{datatype}_2.xlsx')
+    entity_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/EntityLinking_{datatype}_2.xlsx')
     # reading the file which contains the relation candidates for each question
     relation_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/relationdetection_{datatype}.xlsx')
     # merging the relation and entity linking files
