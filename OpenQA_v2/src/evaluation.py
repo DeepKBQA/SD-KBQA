@@ -15,7 +15,18 @@ def pattern_stopiteration_workaround():
     except:
         pass
   
-
+def make_unique(row):
+  ner = row['Candidates']
+  mids = []
+  uis = []
+  try:
+    for idx1, ((mid, string, conf), sim1) in enumerate(eval(ner)):
+      if mid not in mids:
+        mids.append(mid)
+        uis.append(((mid, string, conf), sim1))
+    return uis
+  except:
+    return []
 
 def combine(reachability_2M, reverb2freebace):
   counter1, counter2 = 0, 0
@@ -47,39 +58,37 @@ def combine(reachability_2M, reverb2freebace):
   return reachability_2M
 
 def create_candidates(row):
-  ner = row['Candidates']
-  # print(ner)
+  ner = make_unique(row)
+  ner = ner[:min(len(ner), 50)]
+
   freebase = row['Freebase']
   reverb = row['Reverb']
   candidates = []
   rvb = [(key, value) for key, value in eval(reverb).items()]
   rels = eval(freebase)+rvb
-  try:
-    for idx1, ((mid, string, conf), sim1) in enumerate(eval(ner)):
-        relations = list(reachability_2M[mid])
-        # print(len(relations))
-        for relation in relations[:min(len(relations), 50)]:
-          if isinstance(relation, tuple):
-            for idx2, (rel, sim2) in enumerate(rels):
-              
-              edge_list = rel.split()
-              if len(edge_list)>=2 and edge_list[0]=='did':
-                edge_list[1] = conjugate(verb=edge_list[1], tense=PAST)
-                rel = ' '.join(edge_list[1:])
-              similirity_ratio = fuzz.partial_ratio(relation[0], rel) 
-              if similirity_ratio>70:
-                # print(relation, rel, similirity_ratio)
-                candidates.append((mid, rel, sim1, similirity_ratio/100, conf, relation[1]))
-          else:
-            for idx2, (rel, sim2) in enumerate(rels):
-              # print(rel, relation)
-              if relation==rel:
-                candidates.append((mid, rel, sim1, sim2, conf))
-    # print(sorted(candidates, key=lambda item:item[2]+item[3], reverse=True))
-    # print('*'*10)
-    return sorted(candidates, key=lambda item:item[2]+item[3], reverse=True)
-  except:
-    return None
+  # try:
+  for idx1, ((mid, string, conf), sim1) in enumerate(ner):
+      relations = list(reachability_2M[mid])
+      for relation in relations[:min(len(relations), 50)]:
+        if isinstance(relation, tuple):
+          for idx2, (rel, sim2) in enumerate(rels):
+            
+            edge_list = rel.split()
+            if len(edge_list)>=2 and edge_list[0]=='did':
+              edge_list[1] = conjugate(verb=edge_list[1], tense=PAST)
+              rel = ' '.join(edge_list[1:])
+            similirity_ratio = fuzz.partial_ratio(relation[0], rel) 
+            if similirity_ratio>70:
+              # print(relation, rel, similirity_ratio)
+              candidates.append((mid, rel, sim1, similirity_ratio/100, conf, relation[1]))
+        else:
+          for idx2, (rel, sim2) in enumerate(rels):
+            # print(rel, relation)
+            if relation==rel:
+              candidates.append((mid, rel, sim1, sim2, conf))
+  return sorted(candidates, key=lambda item:item[2]+item[3], reverse=True)
+  # except:
+  #   return None
 
 def myeval(_input):
   try:
@@ -218,7 +227,7 @@ if __name__=='__main__':
 
 
     # reading the file which contains the Entity Linking candidates for each question
-    entity_df = pd.read_excel(f'/content/OpenQA/EntityLinking_test_2.xlsx')
+    entity_df = pd.read_excel(f'/content/OpenQA/EntityLinking_{datatype}_2.xlsx')
     # reading the file which contains the relation candidates for each question
     relation_df = pd.read_excel(f'/content/drive/MyDrive/data_freebase/relationdetection_{datatype}.xlsx')
     # merging the relation and entity linking files
@@ -268,11 +277,9 @@ if __name__=='__main__':
 
     total = len(data)
     print(total)
-    # data.progress_apply(create_candidates, axis=1)
-    # sys.exit()
     data['answers'] = data.progress_apply(create_candidates, axis=1)
-    data.to_excel("actual.xlsx")
     data = data.dropna(subset=['answers'])
+    print(len(data))
     
     save_features(data)
     data = adding_revised_answers(data)
