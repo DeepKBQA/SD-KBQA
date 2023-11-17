@@ -105,7 +105,7 @@ def convert_to_float(item):
     return 0.0
 
 
-def adding_revised_answers(data):
+def adding_revised_answers(data, with_confidence):
     revised_answers = []
     for idx1, row in data.iterrows():
         temp = []
@@ -130,7 +130,10 @@ def adding_revised_answers(data):
                     temp.append(modified)
             else:
                 temp.append(candidate)
-        temp = sorted(temp, key=lambda item:item[2]+item[3]+convert_to_float(item[4]), reverse=True)
+        if with_confidence:
+          temp = sorted(temp, key=lambda item:item[2]+item[3]+convert_to_float(item[4]), reverse=True)
+        else:
+          temp = sorted(temp, key=lambda item:item[2]+item[3], reverse=True)
         revised_answers.append(temp)
     data['revised_answers'] = revised_answers
     return data 
@@ -223,6 +226,7 @@ if __name__=='__main__':
     pattern_stopiteration_workaround()
     datatype = str(sys.argv[1])
     dataset = eval(sys.argv[2])
+    with_confidence = eval(sys.argv[3])
 
 
 
@@ -282,6 +286,6 @@ if __name__=='__main__':
     print(len(data))
     
     save_features(data)
-    data = adding_revised_answers(data)
+    data = adding_revised_answers(data, with_confidence)
     evaluate(data, total)
     
